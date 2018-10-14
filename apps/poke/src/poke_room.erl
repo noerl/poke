@@ -12,11 +12,11 @@
 
 -record(room, {
     roomId, %% roomId
-    banker, %% 庄家 pid
-    player, %% 当前出牌的玩家pid  
+    banker, %% 庄家 位置
+    player, %% 当前出牌的玩家的位置 
     timerRef, %% 倒计时ref
     lastcards = [], %% 前手牌
-    posList = [1,2,3], %% 
+    posList = [1,2,3], %% 玩家位置信息
     userList = [] %% 玩家列表
 }).
 
@@ -98,10 +98,19 @@ handle_info({join_room, Name, Pid}, Room) ->
 	    Room
     end,
     {noreply, NewRoom};
+handle_info({exit_room, Pid}, Room) ->
+	 {noreply, Room};
 handle_info(deal_card, Room) ->
+	CardList = poke_logic:deal_card(),
     UserList = Room#room.userList,
-    [UserTmp#user.pid ! {cmd, jsx:encode([{<<"pos">>, UserTmp#user.pos},{<<"handCards">>, [1,2,3]}])} || UserTmp <- UserList],
-    {noreply, Room};
+    Fun = fun(UserTmp) ->
+    		#user{pid = Pid, pos = Pos} = UserTmp,
+    		PosCard = lists:nth(Pos, CardList),
+    		Pid ! {cmd, jsx:encode([{<<"pos">>, Pos},{<<"handCards">>, PosCard}])},
+    		UserTmp#user{handcards = PosCard}
+    	end,
+    NewUserList = lists:map(Fun, UserList),
+    {noreply, Room#room{userList = NewUserList}};
 handle_info(_Request, Room) ->
     {noreply, Room}.
 
