@@ -31,7 +31,8 @@ start_link() ->
 %% Before OTP 18 tuples must be used to specify a child. e.g.
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
 init([]) ->
-    {ok, {{one_for_all, 0, 1}, []}}.
+	PokeRoomSup = #{id => poke_room_sup,  start => {poke_room_sup, start_link, []}, restart => permanent, shutdown => 5000, type => supervisor, modules => [poke_room_sup]},
+    {ok, {{one_for_all, 0, 1}, [PokeRoomSup]}}.
 
 %%====================================================================
 %% Internal functions

@@ -14,7 +14,15 @@
 %% API
 %%====================================================================
 
-start(_StartType, _StartArgs) ->
+start(normal, []) ->
+	Dispatch = cowboy_router:compile([
+		{'_', [
+			{"/websocket", poke_ws, []}
+		]}
+	]),
+	{ok, _} = cowboy:start_clear(http, [{port, 80}], #{
+		env => #{dispatch => Dispatch}
+	}),
     poke_sup:start_link().
 
 %%--------------------------------------------------------------------
