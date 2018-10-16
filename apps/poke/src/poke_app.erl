@@ -15,9 +15,12 @@
 %%====================================================================
 
 start(normal, []) ->
+	ets:new(room, [named_table, public]),
 	Dispatch = cowboy_router:compile([
 		{'_', [
-			{"/websocket", poke_ws, []}
+			{"/", cowboy_static, {priv_file, poke, "index.html"}},
+                        {"/websocket", poke_ws, []},
+                        {"/static/[...]", cowboy_static, {priv_dir, poke, "static"}}
 		]}
 	]),
 	{ok, _} = cowboy:start_clear(http, [{port, 80}], #{

@@ -5,7 +5,9 @@
   {mod, {poke_app, []}},
   {applications,
    [kernel,
-    stdlib
+    stdlib,
+    jsx,
+    cowboy
    ]},
   {env,[]},
   {modules, []},
