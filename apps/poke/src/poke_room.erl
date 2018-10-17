@@ -203,17 +203,17 @@ deal_card(Room) ->
     CardList = poke_logic:shuffle(),
     Banker = Room#room.banker,
     Fun = fun(UserTmp) ->
-            #user{pid = Pid, pos = Pos} = UserTmp,
-            HandCards = lists:nth(Pos, CardList),
-            NewHandCards = 
-                case Banker =:= Pos of
-                    true -> lists:sort([41,41,43] ++ HandCards);
-                    false -> HandCards
-                end,
-            PosCard = [{<<"pos">>, Pos},{<<"handCards">>, NewHandCards}],
-            Pid ! {cmd, <<"deal_card:">>, PosCard},
-            UserTmp#user{handcards = PosCard}
-        end,
+        #user{pid = Pid, pos = Pos} = UserTmp,
+        HandCards = lists:nth(Pos, CardList),
+        NewHandCards = 
+            case Banker =:= Pos of
+                true -> lists:sort([41,41,43] ++ HandCards);
+                false -> HandCards
+            end,
+        PosCard = [{<<"pos">>, Pos},{<<"handCards">>, NewHandCards}],
+        Pid ! {cmd, <<"deal_card:">>, PosCard},
+        UserTmp#user{handcards = PosCard}
+    end,
     lists:map(Fun, Room#room.userList).
 
 
