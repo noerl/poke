@@ -185,7 +185,7 @@ exit_playing(Pid, User, UserList, Room) ->
     User1 = User#user{state = 2},
     NewUserList = lists:keystore(Pid, #user.pid, UserList, User1),
     NewRoom = Room#room{userList = NewUserList},
-    [User#user.pid ! {cmd, [<<"exit:">>, [{<<"pos">>, User#user.pos}]]} || User <- UserList],
+    [UserTmp#user.pid ! {cmd, [<<"exit:">>, [{<<"pos">>, User#user.pos}]]} || UserTmp <- UserList],
     {noreply, NewRoom}.
             
 
