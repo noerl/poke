@@ -60,7 +60,7 @@ handle_info({join_room, Name, Pid}, Room) ->
     NewRoom = 
         case lists:keyfind(Pid, #user.pid, Room#room.userList) of
         	false ->
-        	    join_once(Pid, Name, Pos, Room);
+        	    join_once(Pid, Name, Room);
         	{Pid, User} ->
             	join_again(Pid, User, Room)
         end,
@@ -103,7 +103,7 @@ room_id() ->
     end.
 
 
-join_once(Pid, Name, Pos, Room) ->
+join_once(Pid, Name, Room) ->
     case Room#room.posList of
         [Pos] ->
             NewUserList = join_notice(Pid, Name, Pos, Room),
@@ -193,7 +193,7 @@ exit_playing(Pid, User, UserList, Room) ->
 
 playing(UserList) ->
     Fun = fun(User) -> User#user.state =:= 1 end,
-    lists:all(Fun, UserList]).
+    lists:all(Fun, UserList).
      
 
 
