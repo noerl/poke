@@ -5,7 +5,7 @@
     pid,    %% 玩家进程pid
     name,   %% 玩家名称
     pos,    %% 玩家座位
-    state,  %% 玩家状态
+    state = 1,  %% 玩家状态 %% 0 预备 1 开始 2 挂机
     handcards = [], %% 玩家手牌
     playcards = []  %% 玩家打出的牌
 }).
@@ -58,48 +58,16 @@ handle_cast(_Request, Room) ->
 
 handle_info({join_room, Name, Pid}, Room) ->
     NewRoom = 
-    case lists:keyfind(Pid, #user.pid, Room#room.userList) of
-	false ->
-	    case Room#room.posList of
-		[Pos] ->
-	    	    User = #user{pid = Pid, name = Name, pos = Pos},
-		    JoinRoom = jsx:encode([[{<<"name">>, Name}, {<<"pos">>, Pos}]]),
-		    Msg = <<<<"join_room:">>/binary, JoinRoom/binary>>,
-		    [UserTmp#user.pid ! {cmd, Msg} || UserTmp <- Room#room.userList],
-		    NewUserList = [User|Room#room.userList],
-		    RoomUser = jsx:encode([[{<<"name">>, UserTmp#user.name}, {<<"pos">>, UserTmp#user.pos}] || UserTmp <- NewUserList]),
-		    Pid ! {cmd, <<<<"join_room:">>/binary, RoomUser/binary>>},
-		    RoomInfo = jsx:encode([{<<"roomId">>, Room#room.roomId}, {<<"banker">>, Room#room.banker}]),
-		    Pid ! {cmd, <<<<"room_info:">>/binary, RoomInfo/binary>>},
-		    self() ! deal_card,
-		    Room#room{posList = [], userList = NewUserList};
-		[Pos|List] ->
-		    User = #user{pid = Pid, name = Name, pos = Pos},
-                    JoinRoom = jsx:encode([[{<<"name">>, Name}, {<<"pos">>, Pos}]]),
-                    Msg = <<<<"join_room:">>/binary, JoinRoom/binary>>,
-                    [UserTmp#user.pid ! {cmd, Msg} || UserTmp <- Room#room.userList],
-                    NewUserList = [User|Room#room.userList],
-		    RoomUser = jsx:encode([[{<<"name">>, UserTmp#user.name}, {<<"pos">>, UserTmp#user.pos}] || UserTmp <- NewUserList]),
-                    Pid ! {cmd, <<<<"join_room:">>/binary, RoomUser/binary>>},
-		    RoomInfo = jsx:encode([{<<"roomId">>, Room#room.roomId}, {<<"banker">>, Room#room.banker}]),
-                    Pid ! {cmd, <<<<"room_info:">>/binary, RoomInfo/binary>>},
-		    Room#room{posList = List, userList = NewUserList}
-	    end;
-	{Pid, User} ->
-    	    RoomUser = jsx:encode([[{<<"name">>, UserTmp#user.name}, {<<"pos">>, UserTmp#user.pos}] || UserTmp <- Room#room.userList]),
-	    Pid ! {cmd, <<<<"join_room:">>/binary, RoomUser/binary>>},
-	    HandCards = jsx:encode([{<<"handCards">>, User#user.handcards}]),
-	    Pid ! {cmd, <<<<"hand_cards:">>/binary, HandCards/binary>>},
-	    TableCards = jsx:encode([[{<<"pos">>, UserTmp#user.pos}, {<<"playCards">>, UserTmp#user.playcards}] || UserTmp <- Room#room.userList]),
-	    Pid ! {cmd, <<<<"table_cards:">>/binary, TableCards/binary>>},
-	    Time = erlang:read_timer(Room#room.timerRef, []),
-	    RoomInfo = jsx:encode([{<<"banker">>, Room#room.banker}, {<<"player">>, Room#room.player}, {<<"time">>, Time}]),	    
-	    Pid ! {cmd, <<<<"room_info:">>/binary, RoomInfo/binary>>},
-	    Room
-    end,
+        case lists:keyfind(Pid, #user.pid, Room#room.userList) of
+        	false ->
+        	    join_once(Pid, Name, Pos, Room);
+        	{Pid, User} ->
+            	join_again(Pid, User, Room)
+        end,
     {noreply, NewRoom};
 handle_info({exit_room, Pid}, Room) ->
-	 {noreply, Room};
+    NewRoom = exit_room(Pid, Room),
+	{noreply, NewRoom};
 handle_info(deal_card, Room) ->
 	CardList = poke_logic:deal_card(),
     UserList = Room#room.userList,
@@ -122,13 +90,110 @@ code_change(_OldVsn, Room, _Extra)->
     {ok, Room}.
 
 
+
 room_id() ->
     rand:seed(exrop),
     RoomId = iolist_to_binary(io_lib:format("~6.10.0B", [rand:uniform(999999)])),
     case ets:lookup(room, RoomId) of
-	[] -> 
-	    ets:insert(room, {RoomId, self()}),
-	    RoomId;
-	_ -> 
-	    room_id()
+    	[] -> 
+    	    ets:insert(room, {RoomId, self()}),
+    	    RoomId;
+    	_ -> 
+    	    room_id()
     end.
+
+
+join_once(Pid, Name, Pos, Room) ->
+    case Room#room.posList of
+        [Pos] ->
+            NewUserList = join_notice(Pid, Name, Pos, Room),
+            self() ! deal_card,
+            Room#room{posList = [], userList = NewUserList};
+        [Pos|List] ->
+            NewUserList = join_notice(Pid, Name, Pos, Room),
+            Room#room{posList = List, userList = NewUserList}
+    end.
+
+
+join_notice(Pid, Name, Pos, Room) ->
+    UserList = Room#room.userList,
+    User = #user{pid = Pid, name = Name, pos = Pos},
+    JoinRoom = jsx:encode([[{<<"name">>, Name}, {<<"pos">>, Pos}]]),
+    Msg = <<<<"join_room:">>/binary, JoinRoom/binary>>,
+    [UserTmp#user.pid ! {cmd, Msg} || UserTmp <- UserList],
+    NewUserList = [User|UserList],
+    RoomUser = jsx:encode([[{<<"name">>, UserTmp#user.name}, {<<"pos">>, UserTmp#user.pos}] || UserTmp <- NewUserList]),
+    Pid ! {cmd, <<<<"join_room:">>/binary, RoomUser/binary>>},
+    RoomInfo = jsx:encode([{<<"roomId">>, Room#room.roomId}, {<<"banker">>, Room#room.banker}]),
+    Pid ! {cmd, <<<<"room_info:">>/binary, RoomInfo/binary>>},
+    NewUserList.
+
+
+join_again(Pid, User, Room) ->
+    UserList = Room#room.userList,
+    User1 = User#user{state = 1},
+    NewUserList = lists:keystore(Pid, #user.pid, UserList, User1),
+
+    RoomUser = jsx:encode([[{<<"name">>, UserTmp#user.name}, {<<"pos">>, UserTmp#user.pos}] || UserTmp <- NewUserList]),
+    Pid ! {cmd, <<<<"join_room:">>/binary, RoomUser/binary>>},
+
+    HandCards = jsx:encode([{<<"handCards">>, User#user.handcards}]),
+    Pid ! {cmd, <<<<"hand_cards:">>/binary, HandCards/binary>>},
+
+    TableCards = jsx:encode([[{<<"pos">>, UserTmp#user.pos}, {<<"playCards">>, UserTmp#user.playcards}] || UserTmp <- NewUserList]),
+    Pid ! {cmd, <<<<"table_cards:">>/binary, TableCards/binary>>},
+
+    Time = erlang:read_timer(Room#room.timerRef, []),
+    RoomInfo = jsx:encode([{<<"banker">>, Room#room.banker}, {<<"player">>, Room#room.player}, {<<"time">>, Time}]),        
+    Pid ! {cmd, <<<<"room_info:">>/binary, RoomInfo/binary>>},
+
+    Room#room{userList = NewUserList}.
+
+
+exit_room(Pid, Room) ->
+    UserList = Room#room.userList,
+    case lists:keyfind(Pid, #user.pid, UserList) of
+        {Pid, User} ->
+            Len = length(UserList),
+            case Len of
+                1 -> 
+                    {stop, normal, Room};
+                2 -> 
+                    exit_unplaying(Pid, UserList, Room);
+                3 ->
+                    case playing(UserList) of
+                        true -> 
+                            exit_playing(Pid, User, UserList, Room);
+                        false ->
+                            exit_unplaying(Pid, UserList, Room)
+                    end
+            end;
+        _ ->
+            Pid ! exit
+    end.
+
+
+%% 未开始时退出 庄家位置不变
+exit_unplaying(Pid, UserList, Room) ->
+    NewUserList = lists:keydelete(Pid, #user.pid, UserList),
+    [User#user.pid ! {cmd, [<<"exit:">>, [{<<"pos">>, User#user.pos}]]} || User <- UserList],
+    {noreply, Room#room{userList = NewUserList}};
+
+
+%% 正在玩时退出
+exit_playing(Pid, User, UserList, Room) ->
+    User1 = User#user{state = 2},
+    NewUserList = lists:keystore(Pid, #user.pid, UserList, User1),
+    NewRoom = Room#room{userList = NewUserList},
+    [User#user.pid ! {cmd, [<<"exit:">>, [{<<"pos">>, User#user.pos}]]} || User <- UserList],
+    {noreply, NewRoom};
+            
+
+
+
+playing(UserList) ->
+    Fun = fun(User) -> User#user.state =:= 1 end,
+    lists:all(Fun, UserList]).
+     
+
+
