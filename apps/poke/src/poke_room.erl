@@ -110,12 +110,12 @@ join_once(Pid, Name, Room) ->
 join_notice(Pid, Name, Pos, Room) ->
     UserList = Room#room.userList,
     User = #user{pid = Pid, name = Name, pos = Pos},
-    JoinRoom = [[{<<"name">>, Name}, {<<"pos">>, Pos}]],
-    [UserTmp#user.pid ! {cmd, <<"join_room:">>, JoinRoom} || UserTmp <- UserList],
+    JRNoticeOther = join_room_notice(Name, Pos, State),
+    [UTmp#user.pid ! JoinRoomInfo || UTmp <- UserList],
 
     NewUserList = [User|UserList],
-    RoomUser = [[{<<"name">>, UserTmp#user.name}, {<<"pos">>, UserTmp#user.pos}] || UserTmp <- NewUserList],
-    Pid ! {cmd, <<"join_room:">>, RoomUser},
+    JRNoticeSelf = join_room_notice(NewUserList),
+    Pid ! JRNoticeSelf,
 
     RoomInfo = [{<<"roomId">>, Room#room.roomId}, {<<"banker">>, Room#room.banker}],
     Pid ! {cmd, <<"room_info:">>, RoomInfo},
@@ -127,13 +127,16 @@ join_again(Pid, User, Room) ->
     User1 = User#user{state = 1},
     NewUserList = lists:keystore(Pid, #user.pid, UserList, User1),
 
-    RoomUser = [[{<<"name">>, UserTmp#user.name}, {<<"pos">>, UserTmp#user.pos}] || UserTmp <- NewUserList],
-    Pid ! {cmd, <<"join_room:">>, RoomUser},
+    JRNoticeOther = join_room_notice([User1]),
+    [UTmp#user.pid ! JoinRoomInfo || UTmp <- UserList, UTmp#user.pid =/= Pid],
+
+    JRNoticeSelf = join_room_notice(NewUserList),
+    Pid ! JRNoticeSelf,
 
     HandCards = [{<<"handCards">>, User#user.handcards}],
     Pid ! {cmd, <<"hand_cards:">>, HandCards},
 
-    TableCards = [[{<<"pos">>, UserTmp#user.pos}, {<<"playCards">>, UserTmp#user.playcards}] || UserTmp <- NewUserList],
+    TableCards = [[{<<"pos">>, UTmp#user.pos}, {<<"playCards">>, UTmp#user.playcards}] || UTmp <- NewUserList],
     Pid ! {cmd, <<"table_cards:">>, TableCards},
 
     Time = erlang:read_timer(Room#room.timerRef, []),
@@ -169,7 +172,7 @@ exit_room(Pid, Room) ->
 %% 未开始时退出 庄家位置不变
 exit_unplaying(Pid, UserList, Room) ->
     NewUserList = lists:keydelete(Pid, #user.pid, UserList),
-    [UTmp#user.pid ! {cmd, <<"exit:">>, [{<<"pos">>, User#user.pos}]} || UTmp <- UserList],
+    [UTmp#user.pid ! {cmd, <<"exit:">>, [{<<"pos">>, UTmp#user.pos}]} || UTmp <- UserList],
     {noreply, Room#room{userList = NewUserList}}.
 
 
@@ -202,6 +205,18 @@ deal_card(Room) ->
     lists:map(Fun, Room#room.userList).
 
 
+join_room_notice(UserList) ->
+    RoomUser = [join_room_pack(User) || User <- UserList],
+    {cmd, <<"join_room:">>, RoomUser}.
+
+join_room_notice(Name, Pos, State) ->
+   User = join_room_pack(Name, Pos, State),
+   {cmd, <<"join_room:">>, [User]}.
 
 
+join_room_pack(#user{name = Name, pos = Pos, state = State}) ->
+    join_room_pack(Name, Pos, State).
+
+join_room_pack(Name, Pos, State) ->
+    [{<<"name">>, Name}, {<<"pos">>, Pos}, {<<"state">>, State}].
 
