@@ -110,8 +110,8 @@ join_once(Pid, Name, Room) ->
 join_notice(Pid, Name, Pos, Room) ->
     UserList = Room#room.userList,
     User = #user{pid = Pid, name = Name, pos = Pos},
-    JRNoticeOther = join_room_notice(Name, Pos, State),
-    [UTmp#user.pid ! JoinRoomInfo || UTmp <- UserList],
+    JRNoticeOther = join_room_notice(Name, Pos, 1),
+    [UTmp#user.pid ! JRNoticeOther || UTmp <- UserList],
 
     NewUserList = [User|UserList],
     JRNoticeSelf = join_room_notice(NewUserList),
@@ -127,8 +127,8 @@ join_again(Pid, User, Room) ->
     User1 = User#user{state = 1},
     NewUserList = lists:keystore(Pid, #user.pid, UserList, User1),
 
-    JRNoticeOther = join_room_notice([User1]),
-    [UTmp#user.pid ! JoinRoomInfo || UTmp <- UserList, UTmp#user.pid =/= Pid],
+    StateNotice = state_notice(User1),
+    [UTmp#user.pid ! StateNotice || UTmp <- UserList],
 
     JRNoticeSelf = join_room_notice(NewUserList),
     Pid ! JRNoticeSelf,
@@ -155,7 +155,7 @@ exit_room(Pid, Room) ->
                 1 -> 
                     {stop, normal, Room};
                 2 -> 
-                    exit_unplaying(Pid, UserList, Room);
+                    exit_unplaying(Pid, User, UserList, Room);
                 3 ->
                     case playing(UserList) of
                         true -> 
@@ -170,9 +170,10 @@ exit_room(Pid, Room) ->
 
 
 %% 未开始时退出 庄家位置不变
-exit_unplaying(Pid, UserList, Room) ->
+exit_unplaying(Pid, User, UserList, Room) ->
     NewUserList = lists:keydelete(Pid, #user.pid, UserList),
-    [UTmp#user.pid ! {cmd, <<"exit:">>, [{<<"pos">>, UTmp#user.pos}]} || UTmp <- UserList],
+    ExitInfo = exit_pack(User),
+    [UTmp#user.pid ! ExitInfo || UTmp <- UserList],
     {noreply, Room#room{userList = NewUserList}}.
 
 
@@ -181,7 +182,12 @@ exit_playing(Pid, User, UserList, Room) ->
     User1 = User#user{state = 2},
     NewUserList = lists:keystore(Pid, #user.pid, UserList, User1),
     NewRoom = Room#room{userList = NewUserList},
-    [UTmp#user.pid ! {cmd, <<"exit:">>, [{<<"pos">>, User#user.pos}]} || UTmp <- UserList],
+    
+    StateNotice = state_notice(User1),
+    [UTmp#user.pid ! StateNotice || UTmp <- UserList],
+
+    ExitInfo = exit_pack(User),
+    Pid ! ExitInfo,
     {noreply, NewRoom}.
             
 
@@ -220,3 +226,18 @@ join_room_pack(#user{name = Name, pos = Pos, state = State}) ->
 join_room_pack(Name, Pos, State) ->
     [{<<"name">>, Name}, {<<"pos">>, Pos}, {<<"state">>, State}].
 
+
+state_notice(User) ->
+    StateInfo = state_pack(User),
+    {cmd, <<"state_info:">>, StateInfo}.
+
+
+state_pack(#user{pos = Pos, state = State}) ->
+    state_pack(Pos, State).
+
+state_pack(Pos, State) ->
+    [{<<"pos">>, Pos}, {<<"state">>, State}].
+
+
+exit_pack(User) ->
+    {cmd, <<"exit:">>, [{<<"pos">>, User#user.pos}]}.
