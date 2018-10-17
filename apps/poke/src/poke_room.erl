@@ -177,7 +177,7 @@ exit_room(Pid, Room) ->
 exit_unplaying(Pid, UserList, Room) ->
     NewUserList = lists:keydelete(Pid, #user.pid, UserList),
     [User#user.pid ! {cmd, [<<"exit:">>, [{<<"pos">>, User#user.pos}]]} || User <- UserList],
-    {noreply, Room#room{userList = NewUserList}};
+    {noreply, Room#room{userList = NewUserList}}.
 
 
 %% 正在玩时退出
@@ -186,7 +186,7 @@ exit_playing(Pid, User, UserList, Room) ->
     NewUserList = lists:keystore(Pid, #user.pid, UserList, User1),
     NewRoom = Room#room{userList = NewUserList},
     [User#user.pid ! {cmd, [<<"exit:">>, [{<<"pos">>, User#user.pos}]]} || User <- UserList],
-    {noreply, NewRoom};
+    {noreply, NewRoom}.
             
 
 
