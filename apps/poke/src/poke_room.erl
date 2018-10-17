@@ -161,7 +161,7 @@ exit_room(Pid, Room) ->
                         true -> 
                             exit_playing(Pid, User, UserList, Room);
                         false ->
-                            exit_unplaying(Pid, UserList, Room)
+                            exit_unplaying(Pid, User, UserList, Room)
                     end
             end;
         _ ->
@@ -182,7 +182,7 @@ exit_playing(Pid, User, UserList, Room) ->
     User1 = User#user{state = 2},
     NewUserList = lists:keystore(Pid, #user.pid, UserList, User1),
     NewRoom = Room#room{userList = NewUserList},
-    
+
     StateNotice = state_notice(User1),
     [UTmp#user.pid ! StateNotice || UTmp <- UserList],
 
