@@ -34,12 +34,20 @@ websocket_handle({text, <<"join_room:", DataBin/binary>>}, State) ->
 	end;
 websocket_handle({text, <<"exit_room:", _DataBin/binary>>}, State) ->
 	State#state.roomPid ! {exit_room, self()},
-	{ok, State#state{roomPid = undefined}};
+	{ok, State};
 websocket_handle(_Data, State) ->
 	{ok, State}.
 
 
-websocket_info({cmd, Msg}, State) ->
-        {reply, {text, Msg}, State};
+websocket_info({cmd, Cmd, Data}, State) ->
+	DataBin = jsx:encode(Data),
+    {reply, {text, <<Cmd/binary, DataBin/binary>>}, State};
 websocket_info(_Info, State) ->
 	{ok, State}.
+
+
+
+
+
+
+

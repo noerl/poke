@@ -8,30 +8,30 @@
 
 
 -export([
-	deal_card/0
+	shuffle/0
 ]).
 
 
 
-deal_card() ->
-	deal_card(?POKE_LIST, [{0, []}, {0, []}, {0, []}], []).
+shuffle() ->
+	shuffle(?POKE_LIST, [{0, []}, {0, []}, {0, []}], []).
 	
 
-deal_card([Poke|List], UnFinList, FinList) ->
+shuffle([Poke|List], UnFinList, FinList) ->
 	case UnFinList of
 		[{L1, PL1}, {L2, PL2}] ->
 			case rand:uniform(2) of
 				1 -> 
 					case L1 < ?POKE_NUM of
 						true -> 
-							deal_card(List, [{L1+1, [Poke|PL1]}, {L2, PL2}], FinList);
+							shuffle(List, [{L1+1, [Poke|PL1]}, {L2, PL2}], FinList);
 						false ->
 							[[Poke|PL1], List ++ PL2, FinList]
 					end;
 				2 -> 
 					case L2 < ?POKE_NUM of
 						true ->
-							deal_card(List, [{L1, PL1}, {L2+1, [Poke|PL2]}], FinList);
+							shuffle(List, [{L1, PL1}, {L2+1, [Poke|PL2]}], FinList);
 						false ->
 							[lists:reverse(List) ++ PL1, [Poke|PL2], FinList]
 					end
@@ -41,23 +41,23 @@ deal_card([Poke|List], UnFinList, FinList) ->
 				1 -> 
 					case L1 < ?POKE_NUM of
 						true -> 
-							deal_card(List, [{L1+1, [Poke|PL1]}, {L2, PL2}, {L3, PL3}], FinList);
+							shuffle(List, [{L1+1, [Poke|PL1]}, {L2, PL2}, {L3, PL3}], FinList);
 						false ->
-							deal_card(List, [{L2, PL2}, {L3, PL3}], [Poke|PL1])
+							shuffle(List, [{L2, PL2}, {L3, PL3}], [Poke|PL1])
 					end;
 				2 ->
 					case L2 < ?POKE_NUM of
 						true -> 
-							deal_card(List, [{L1, PL1}, {L2+1, [Poke|PL2]}, {L3, PL3}], FinList);
+							shuffle(List, [{L1, PL1}, {L2+1, [Poke|PL2]}, {L3, PL3}], FinList);
 						false ->
-							deal_card(List, [{L1, PL1}, {L3, PL3}], [Poke|PL2])
+							shuffle(List, [{L1, PL1}, {L3, PL3}], [Poke|PL2])
 					end;
 				3 ->
 					case L3 < ?POKE_NUM of
 						true -> 
-							deal_card(List, [{L1, PL1}, {L2, PL2}, {L3+1, [Poke|PL3]}], FinList);
+							shuffle(List, [{L1, PL1}, {L2, PL2}, {L3+1, [Poke|PL3]}], FinList);
 						false ->
-							deal_card(List, [{L1, PL1}, {L2, PL2}], [Poke|PL3])
+							shuffle(List, [{L1, PL1}, {L2, PL2}], [Poke|PL3])
 					end
 			end
 	end.

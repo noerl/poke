@@ -69,15 +69,7 @@ handle_info({exit_room, Pid}, Room) ->
     NewRoom = exit_room(Pid, Room),
 	{noreply, NewRoom};
 handle_info(deal_card, Room) ->
-	CardList = poke_logic:deal_card(),
-    UserList = Room#room.userList,
-    Fun = fun(UserTmp) ->
-    		#user{pid = Pid, pos = Pos} = UserTmp,
-    		PosCard = lists:nth(Pos, CardList),
-    		Pid ! {cmd, jsx:encode([{<<"pos">>, Pos},{<<"handCards">>, PosCard}])},
-    		UserTmp#user{handcards = PosCard}
-    	end,
-    NewUserList = lists:map(Fun, UserList),
+	NewUserList = deal_card(Room),
     {noreply, Room#room{userList = NewUserList}};
 handle_info(_Request, Room) ->
     {noreply, Room}.
@@ -118,14 +110,15 @@ join_once(Pid, Name, Room) ->
 join_notice(Pid, Name, Pos, Room) ->
     UserList = Room#room.userList,
     User = #user{pid = Pid, name = Name, pos = Pos},
-    JoinRoom = jsx:encode([[{<<"name">>, Name}, {<<"pos">>, Pos}]]),
-    Msg = <<<<"join_room:">>/binary, JoinRoom/binary>>,
-    [UserTmp#user.pid ! {cmd, Msg} || UserTmp <- UserList],
+    JoinRoom = [[{<<"name">>, Name}, {<<"pos">>, Pos}]],
+    [UserTmp#user.pid ! {cmd, <<"join_room:">>, JoinRoom} || UserTmp <- UserList],
+
     NewUserList = [User|UserList],
-    RoomUser = jsx:encode([[{<<"name">>, UserTmp#user.name}, {<<"pos">>, UserTmp#user.pos}] || UserTmp <- NewUserList]),
-    Pid ! {cmd, <<<<"join_room:">>/binary, RoomUser/binary>>},
-    RoomInfo = jsx:encode([{<<"roomId">>, Room#room.roomId}, {<<"banker">>, Room#room.banker}]),
-    Pid ! {cmd, <<<<"room_info:">>/binary, RoomInfo/binary>>},
+    RoomUser = [[{<<"name">>, UserTmp#user.name}, {<<"pos">>, UserTmp#user.pos}] || UserTmp <- NewUserList],
+    Pid ! {cmd, <<"join_room:">>, RoomUser},
+
+    RoomInfo = [{<<"roomId">>, Room#room.roomId}, {<<"banker">>, Room#room.banker}],
+    Pid ! {cmd, <<"room_info:">>, RoomInfo},
     NewUserList.
 
 
@@ -134,18 +127,18 @@ join_again(Pid, User, Room) ->
     User1 = User#user{state = 1},
     NewUserList = lists:keystore(Pid, #user.pid, UserList, User1),
 
-    RoomUser = jsx:encode([[{<<"name">>, UserTmp#user.name}, {<<"pos">>, UserTmp#user.pos}] || UserTmp <- NewUserList]),
-    Pid ! {cmd, <<<<"join_room:">>/binary, RoomUser/binary>>},
+    RoomUser = [[{<<"name">>, UserTmp#user.name}, {<<"pos">>, UserTmp#user.pos}] || UserTmp <- NewUserList],
+    Pid ! {cmd, <<"join_room:">>, RoomUser},
 
-    HandCards = jsx:encode([{<<"handCards">>, User#user.handcards}]),
-    Pid ! {cmd, <<<<"hand_cards:">>/binary, HandCards/binary>>},
+    HandCards = [{<<"handCards">>, User#user.handcards}],
+    Pid ! {cmd, <<"hand_cards:">>, HandCards},
 
-    TableCards = jsx:encode([[{<<"pos">>, UserTmp#user.pos}, {<<"playCards">>, UserTmp#user.playcards}] || UserTmp <- NewUserList]),
-    Pid ! {cmd, <<<<"table_cards:">>/binary, TableCards/binary>>},
+    TableCards = [[{<<"pos">>, UserTmp#user.pos}, {<<"playCards">>, UserTmp#user.playcards}] || UserTmp <- NewUserList],
+    Pid ! {cmd, <<"table_cards:">>, TableCards},
 
     Time = erlang:read_timer(Room#room.timerRef, []),
-    RoomInfo = jsx:encode([{<<"banker">>, Room#room.banker}, {<<"player">>, Room#room.player}, {<<"time">>, Time}]),        
-    Pid ! {cmd, <<<<"room_info:">>/binary, RoomInfo/binary>>},
+    RoomInfo = [{<<"banker">>, Room#room.banker}, {<<"player">>, Room#room.player}, {<<"time">>, Time}],        
+    Pid ! {cmd, <<"room_info:">>, RoomInfo},
 
     Room#room{userList = NewUserList}.
 
@@ -176,7 +169,7 @@ exit_room(Pid, Room) ->
 %% 未开始时退出 庄家位置不变
 exit_unplaying(Pid, UserList, Room) ->
     NewUserList = lists:keydelete(Pid, #user.pid, UserList),
-    [User#user.pid ! {cmd, [<<"exit:">>, [{<<"pos">>, User#user.pos}]]} || User <- UserList],
+    [UTmp#user.pid ! {cmd, <<"exit:">>, [{<<"pos">>, User#user.pos}]} || UTmp <- UserList],
     {noreply, Room#room{userList = NewUserList}}.
 
 
@@ -185,7 +178,7 @@ exit_playing(Pid, User, UserList, Room) ->
     User1 = User#user{state = 2},
     NewUserList = lists:keystore(Pid, #user.pid, UserList, User1),
     NewRoom = Room#room{userList = NewUserList},
-    [UserTmp#user.pid ! {cmd, [<<"exit:">>, [{<<"pos">>, User#user.pos}]]} || UserTmp <- UserList],
+    [UTmp#user.pid ! {cmd, <<"exit:">>, [{<<"pos">>, User#user.pos}]} || UTmp <- UserList],
     {noreply, NewRoom}.
             
 
@@ -195,5 +188,20 @@ playing(UserList) ->
     Fun = fun(User) -> User#user.state =:= 1 end,
     lists:all(Fun, UserList).
      
+
+
+deal_card(Room) ->
+    CardList = poke_logic:shuffle(),
+    Fun = fun(UserTmp) ->
+            #user{pid = Pid, pos = Pos} = UserTmp,
+            HandCards = lists:nth(Pos, CardList),
+            PosCard = [{<<"pos">>, Pos},{<<"handCards">>, HandCards}],
+            Pid ! {cmd, <<"deal_card:">>, PosCard},
+            UserTmp#user{handcards = PosCard}
+        end,
+    lists:map(Fun, Room#room.userList).
+
+
+
 
 
