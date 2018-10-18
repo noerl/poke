@@ -232,12 +232,12 @@ join_room_notice(UserList) ->
     {cmd, <<"join_room:">>, RoomUser}.
 
 join_room_notice(Name, Pos, State) ->
-   User = join_room_pack(Name, Pos, State),
-   {cmd, <<"join_room:">>, [User]}.
+   UserInfo = join_room_pack(Name, Pos, State),
+   {cmd, <<"join_room:">>, [UserInfo]}.
 
 join_room_notice_self(User) ->
-   User = join_room_pack(User),
-   {cmd, <<"join_room_self:">>, User}.
+   UserInfo = join_room_pack(User),
+   {cmd, <<"join_room_self:">>, UserInfo}.
 
 
 join_room_pack(#user{name = Name, pos = Pos, state = State}) ->
