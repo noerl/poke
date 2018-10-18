@@ -1,4 +1,7 @@
 -module(poke_room).
+
+-include("poke.hrl").
+
 -behaviour(gen_server).
 
 -record(user, {
@@ -210,7 +213,7 @@ deal_card(Room) ->
         #{Pos := HandCards} = CardMap,
         NewHandCards = 
             case Banker =:= Pos of
-                true -> lists:sort([41,41,43] ++ HandCards);
+                true -> lists:sort(?KKK ++ HandCards);
                 false -> HandCards
             end,
         Pid ! {deal_card, NewHandCards},
