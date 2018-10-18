@@ -125,7 +125,7 @@ join_notice(Pid, Name, Pos, Room) ->
 
     RoomInfo = [{<<"roomId">>, Room#room.roomId}, {<<"banker">>, Room#room.banker}],
     Pid ! {cmd, <<"room_info:">>, RoomInfo},
-    NewUserList.
+    [User|UserList].
 
 
 join_again(Pid, User, Room) ->
