@@ -23,7 +23,9 @@ shuffle() ->
 shuffle([Poke|List], UnFinMap, FinMap) ->
 	Len = maps:size(UnFinMap),
 	case Len of
-		1 -> FinMap#{1 => lists:reverse(List) ++ [Poke|OwnList]};
+		1 -> 
+			#{1 := {_, OwnList}} = UnFinMap,
+			FinMap#{1 => lists:reverse(List) ++ [Poke|OwnList]};
 		_ ->
 			Index = rand:uniform(Len),
 			#{Index := {IndexLen, IndexList}} = UnFinMap,
