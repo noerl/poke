@@ -57,7 +57,8 @@ websocket_handle(_Data, State) ->
 
 
 websocket_info({deal_card, HandCards}, State) ->
-	DataBin = jsx:encode([{<<"handCards">>, HandCards}]),
+	CardList = encode(HandCards),
+	DataBin = jsx:encode([{<<"handCards">>, CardList}]),
     {reply, {text, <<<<"deal_card:">>/binary, DataBin/binary>>}, State#state{handCards = HandCards}};
 websocket_info({cmd, Cmd, []}, State) ->
 	{ok, State};
@@ -70,5 +71,31 @@ websocket_info(_Info, State) ->
 
 valid(SendPoke, #state{handCards = HandPoke, isBanker = IsBanker}) ->
 	poke_logic:check(SendPoke, HandPoke, IsBanker).
+
+
+encode(ColorCards) ->
+	encode(ColorCards, []).
+
+
+encode([{Value, Color} | ColorCards], List) when Value < ?POKE_LARGE_KING ->
+	Poke = (Value-1)*4 + Color - 1,
+	encode(ColorCards, [Poke|List]);
+encode([{15, 1} | ColorCards], List) ->
+	encode(ColorCards, [53|List]);
+encode([], List) -> List.
+
+
+decode([53|List], ColorCards) -> 
+	decode(List, [{15,1}|ColorCards]);
+decode([V|List], ColorCards) when V < 53 ->
+	Value = (V div 4) + 1,
+	Color = (V rem 4) + 1,
+	decode(List, [{Value, Color}|ColorCards]);
+decode([], ColorCards) -> ColorCards;
+
+
+
+
+
 
 

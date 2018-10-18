@@ -119,9 +119,9 @@ join_notice(Pid, Name, Pos, Room) ->
     JRNoticeOther = join_room_notice(Name, Pos, 1),
     [UTmp#user.pid ! JRNoticeOther || UTmp <- UserList],
 
-    Pid ! join_room_notice(UserList),
-
     Pid ! join_room_notice_self(User),
+    
+    Pid ! join_room_notice(UserList),
 
     RoomInfo = [{<<"roomId">>, Room#room.roomId}, {<<"banker">>, Room#room.banker}],
     Pid ! {cmd, <<"room_info:">>, RoomInfo},
