@@ -19,25 +19,28 @@ shuffle() ->
 	bucket(CardMap, 3, 1).
 
 
-shuffle(PokeList, #{1 := {_, OwnList}}, FinMap) ->
-	FinMap#{1 => lists:reverse(PokeList) ++ OwnList};
+
 shuffle([Poke|List], UnFinMap, FinMap) ->
 	Len = maps:size(UnFinMap),
-	Index = rand:uniform(Len),
-	#{Index := {IndexLen, IndexList}} = UnFinMap,
-	case IndexLen < ?POKE_NUM of
-		true -> 
-			UnFinMap1 = UnFinMap#{Index => {IndexLen+1, [Poke|IndexList]}},
-			shuffle(List, UnFinMap1, FinMap);
-		false ->
-			Fun = fun(Key, Value, Map) ->
-					if  Key > Index -> Map#{Key - 1 => Value};
-						Key < Index -> Map#{Key => Value};
-						true -> Map
-					end
-				end,
-			UnFinMap1 = maps:fold(Fun, #{}, UnFinMap),
-			shuffle(List, UnFinMap1, FinMap#{Len => [Poke|IndexList]})
+	case Len of
+		1 -> FinMap#{1 => lists:reverse(List) ++ [Poke|OwnList]};
+		_ ->
+			Index = rand:uniform(Len),
+			#{Index := {IndexLen, IndexList}} = UnFinMap,
+			case IndexLen < ?POKE_NUM of
+				true -> 
+					UnFinMap1 = UnFinMap#{Index => {IndexLen+1, [Poke|IndexList]}},
+					shuffle(List, UnFinMap1, FinMap);
+				false ->
+					Fun = fun(Key, Value, Map) ->
+							if  Key > Index -> Map#{Key - 1 => Value};
+								Key < Index -> Map#{Key => Value};
+								true -> Map
+							end
+						end,
+					UnFinMap1 = maps:fold(Fun, #{}, UnFinMap),
+					shuffle(List, UnFinMap1, FinMap#{Len => [Poke|IndexList]})
+			end
 	end.
 
 
