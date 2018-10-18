@@ -59,6 +59,8 @@ websocket_handle(_Data, State) ->
 websocket_info({deal_card, HandCards}, State) ->
 	DataBin = jsx:encode([{<<"handCards">>, HandCards}]),
     {reply, {text, <<<<"deal_card:">>/binary, DataBin/binary>>}, State#state{handCards = HandCards}};
+websocket_info({cmd, Cmd, []}, State) ->
+	{ok, State};
 websocket_info({cmd, Cmd, Data}, State) ->
 	DataBin = jsx:encode(Data),
     {reply, {text, <<Cmd/binary, DataBin/binary>>}, State};

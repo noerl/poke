@@ -119,9 +119,9 @@ join_notice(Pid, Name, Pos, Room) ->
     JRNoticeOther = join_room_notice(Name, Pos, 1),
     [UTmp#user.pid ! JRNoticeOther || UTmp <- UserList],
 
-    NewUserList = [User|UserList],
-    JRNoticeSelf = join_room_notice(NewUserList),
-    Pid ! JRNoticeSelf,
+    Pid ! join_room_notice(UserList),
+
+    Pid ! join_room_notice_self(User),
 
     RoomInfo = [{<<"roomId">>, Room#room.roomId}, {<<"banker">>, Room#room.banker}],
     Pid ! {cmd, <<"room_info:">>, RoomInfo},
@@ -136,7 +136,9 @@ join_again(Pid, User, Room) ->
     StateNotice = state_notice(User1),
     [UTmp#user.pid ! StateNotice || UTmp <- UserList],
 
-    JRNoticeSelf = join_room_notice(NewUserList),
+    Pid ! join_room_notice_self(User1),
+
+    JRNoticeSelf = join_room_notice([UTmp || UTmp <- NewUserList, UTmp#user.pid =/= Pid]),
     Pid ! JRNoticeSelf,
 
     HandCards = [{<<"handCards">>, User#user.handcards}],
@@ -232,6 +234,10 @@ join_room_notice(UserList) ->
 join_room_notice(Name, Pos, State) ->
    User = join_room_pack(Name, Pos, State),
    {cmd, <<"join_room:">>, [User]}.
+
+join_room_notice_self(User) ->
+   User = join_room_pack(User),
+   {cmd, <<"join_room_self:">>, User}.
 
 
 join_room_pack(#user{name = Name, pos = Pos, state = State}) ->
