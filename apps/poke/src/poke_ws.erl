@@ -7,6 +7,8 @@
 
 -record(state, {
 	roomPid,
+	pos,
+	isBanker,
 	handCards
 }).
 
@@ -64,7 +66,7 @@ websocket_info(_Info, State) ->
 	{ok, State}.
 
 
-valid(SendPoke, #state{handCards = HandPoke, IsBanker}) ->
+valid(SendPoke, #state{handCards = HandPoke, isBanker = IsBanker}) ->
 	poke_logic:check(SendPoke, HandPoke, IsBanker).
 
 
