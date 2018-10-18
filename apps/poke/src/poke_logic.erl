@@ -8,7 +8,8 @@
 
 
 -export([
-	shuffle/0
+	shuffle/0,
+	shuffle/3
 ]).
 
 
@@ -49,8 +50,13 @@ bucket(CardMap, Max, Min) ->
 
 swap(K, Max, Map) ->
 	Idx = rand:uniform(Max),
-	#{K := V1, Idx := V2} = Map,
-	Map#{K => V2, Idx => V1}.
+	case Idx =/= K of
+		true -> 
+			#{K := V1, Idx := V2} = Map,
+			Map#{K => V2, Idx => V1};
+		false ->
+			Map
+	end.
 
 	
 
