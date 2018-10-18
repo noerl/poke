@@ -24,9 +24,9 @@ websocket_init([]) ->
 websocket_handle({text, <<"send_card:", DataBin/binary>>}, State) ->
 	DataList = jsx:decode(DataBin),
 	CardList = proplists:get_value(<<"cards">>, DataList),
-	case valid(CardList) of
+	case valid(CardList, State) of
 		 true -> 
-			Pid ! {send_card, CardList},
+			State#state.roomPid ! {send_card, CardList},
 			{ok, State};
 		false ->
 			{reply, {text, <<"{\"error\":\"出牌不允许\"}">>}, State}
