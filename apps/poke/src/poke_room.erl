@@ -200,11 +200,12 @@ playing(UserList) ->
 
 
 deal_card(Room) ->
-    CardList = poke_logic:shuffle(),
+    CardMap = poke_logic:shuffle(),
     Banker = Room#room.banker,
     Fun = fun(UserTmp) ->
         #user{pid = Pid, pos = Pos} = UserTmp,
-        HandCards = lists:nth(Pos, CardList),
+        % HandCards = lists:nth(Pos, CardList),
+        #{Pos := HandCards} = CardMap,
         NewHandCards = 
             case Banker =:= Pos of
                 true -> lists:sort([41,41,43] ++ HandCards);
@@ -215,6 +216,9 @@ deal_card(Room) ->
         UserTmp#user{handcards = PosCard}
     end,
     lists:map(Fun, Room#room.userList).
+
+
+
 
 
 join_room_notice(UserList) ->

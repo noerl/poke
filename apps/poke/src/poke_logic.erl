@@ -14,50 +14,88 @@
 
 
 shuffle() ->
-	shuffle(?POKE_LIST, [{0, []}, {0, []}, {0, []}], []).
+	CardMap = shuffle(?POKE_LIST, #{1 => {0, []}, 2 => {0, []}, 3 => {0, []}}, #{}).
+	bucket(CardMap, 3).
+
+
+shuffle(PokeList, #{1 := {_, OwnList}}, FinMap) ->
+	FinMap#{1 => lists:reverse(PokeList) ++ OwnList};
+shuffle([Poke|List], UnFinMap, FinMap) ->
+	Len = maps:size(UnFinMap),
+	Index = rand:uniform(Len),
+	#{Index := {IndexLen, IndexList}} = UnFinMap,
+	case IndexLen < ?POKE_NUM of
+		true -> 
+			UnFinMap1 = UnFinList#{Index => {IndexLen+1, [Poke|IndexList]}},
+			shuffle(List, UnFinMap1, FinMap);
+		false ->
+			Fun = fun(Key, Value, Map) when Key > Index -> Map#{Key - 1 => Value};
+					 (Key, Value, Map) when Key = Index -> Map;
+					 (Key, Value, Map) when Key < Index -> Map#{Key => Value}
+				end,
+			UnFinMap1 = maps:fold(Fun, #{}, UnFinMap),
+			shuffle(List, UnFinMap1, FinMap#{Len => [Poke|IndexList]})
+	end.
+
+
+bucket(CardMap, Max, Max) ->
+	swap(Max, Max, CardMap);
+bucket(CardMap, Max, Min) ->
+	CardMap1 = swap(Min, Max, CardMap),
+	bucket(CardMap, Max, Min+1).
+
+
+swap(K, Max, Map) ->
+	Idx = rand:uniform(Max),
+	#{K := V1, Idx := V2} = CardMap,
+	CardMap#{K => V2, Idx => V1}.
+
 	
 
-shuffle([Poke|List], UnFinList, FinList) ->
-	case UnFinList of
-		[{L1, PL1}, {L2, PL2}] ->
-			case rand:uniform(2) of
-				1 -> 
-					case L1 < ?POKE_NUM of
-						true -> 
-							shuffle(List, [{L1+1, [Poke|PL1]}, {L2, PL2}], FinList);
-						false ->
-							[[Poke|PL1], List ++ PL2, FinList]
-					end;
-				2 -> 
-					case L2 < ?POKE_NUM of
-						true ->
-							shuffle(List, [{L1, PL1}, {L2+1, [Poke|PL2]}], FinList);
-						false ->
-							[lists:reverse(List) ++ PL1, [Poke|PL2], FinList]
-					end
-			end;
-		[{L1, PL1}, {L2, PL2}, {L3, PL3}] ->
-			case rand:uniform(3) of
-				1 -> 
-					case L1 < ?POKE_NUM of
-						true -> 
-							shuffle(List, [{L1+1, [Poke|PL1]}, {L2, PL2}, {L3, PL3}], FinList);
-						false ->
-							shuffle(List, [{L2, PL2}, {L3, PL3}], [Poke|PL1])
-					end;
-				2 ->
-					case L2 < ?POKE_NUM of
-						true -> 
-							shuffle(List, [{L1, PL1}, {L2+1, [Poke|PL2]}, {L3, PL3}], FinList);
-						false ->
-							shuffle(List, [{L1, PL1}, {L3, PL3}], [Poke|PL2])
-					end;
-				3 ->
-					case L3 < ?POKE_NUM of
-						true -> 
-							shuffle(List, [{L1, PL1}, {L2, PL2}, {L3+1, [Poke|PL3]}], FinList);
-						false ->
-							shuffle(List, [{L1, PL1}, {L2, PL2}], [Poke|PL3])
-					end
-			end
-	end.
+% shuffle([Poke|List], UnFinList, FinList) ->
+% 	case UnFinList of
+% 		[{L1, PL1}, {L2, PL2}] ->
+% 			case rand:uniform(2) of
+% 				1 -> 
+% 					case L1 < ?POKE_NUM of
+% 						true -> 
+% 							shuffle(List, [{L1+1, [Poke|PL1]}, {L2, PL2}], FinList);
+% 						false ->
+% 							[[Poke|PL1], List ++ PL2, FinList]
+% 					end;
+% 				2 -> 
+% 					case L2 < ?POKE_NUM of
+% 						true ->
+% 							shuffle(List, [{L1, PL1}, {L2+1, [Poke|PL2]}], FinList);
+% 						false ->
+% 							[lists:reverse(List) ++ PL1, [Poke|PL2], FinList]
+% 					end
+% 			end;
+% 		[{L1, PL1}, {L2, PL2}, {L3, PL3}] ->
+% 			case rand:uniform(3) of
+% 				1 -> 
+% 					case L1 < ?POKE_NUM of
+% 						true -> 
+% 							shuffle(List, [{L1+1, [Poke|PL1]}, {L2, PL2}, {L3, PL3}], FinList);
+% 						false ->
+% 							shuffle(List, [{L2, PL2}, {L3, PL3}], [Poke|PL1])
+% 					end;
+% 				2 ->
+% 					case L2 < ?POKE_NUM of
+% 						true -> 
+% 							shuffle(List, [{L1, PL1}, {L2+1, [Poke|PL2]}, {L3, PL3}], FinList);
+% 						false ->
+% 							shuffle(List, [{L1, PL1}, {L3, PL3}], [Poke|PL2])
+% 					end;
+% 				3 ->
+% 					case L3 < ?POKE_NUM of
+% 						true -> 
+% 							shuffle(List, [{L1, PL1}, {L2, PL2}, {L3+1, [Poke|PL3]}], FinList);
+% 						false ->
+% 							shuffle(List, [{L1, PL1}, {L2, PL2}], [Poke|PL3])
+% 					end
+% 			end
+% 	end.
+
+
+
