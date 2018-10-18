@@ -1,10 +1,19 @@
 -module(poke_logic).
 
-%% 2张梅花K 1张黑桃K [41,41,43]
-%% lists:reverse(lists:flatten([[Num, Num] || Num <- lists:seq(0, 53)]) -- [41,41,43]) 
--define(POKE_LIST, [53,53,52,52,51,51,50,50,49,49,48,48,47,47,46,46,45,45,44,44,43,42,42,40,40,39,39,38,38,37,37,36,36,35,35,34,34,33,33,32,32,31,31,30,30,29,29,28,28,27,27,26,26,25,25,24,24,23,23,22,22,21,21,20,20,19,19,18,18,17,17,16,16,15,15,14,14,13,13,12,12,11,11,10,10,9,9,8,8,7,7,6,6,5,5,4,4,3,3,2,2,1,1,0,0]).
+%% 方块 梅花 红心 黑桃 [1,2,3,4]
+%% 2张梅花K 1张黑桃K [41,41,43] [{11, 2},{11, 2}, {11, 4}]
 
--define(POKE_NUM, 34).
+% lists:flatten([[[{Value, Color},{Value, Color}] || Color <- lists:seq(1,4)] || Value <- lists:seq(1, 13)]).
+-define(POKE_COLOR, [{15,0},{15,0},{14,0},{14,0},{13,4},{13,4},{13,3},{13,3},{13,2},{13,2},{13,1},{13,1},{12,4},{12,4},{12,3},{12,3},{12,2},{12,2},{12,1},{12,1},{11,4},{11,3},{11,3},{11,1},{11,1},{10,4},{10,4},{10,3},{10,3},{10,2},{10,2},{10,1},{10,1},{9,4},{9,4},{9,3},{9,3},{9,2},{9,2},{9,1},{9,1},{8,4},{8,4},{8,3},{8,3},{8,2},{8,2},{8,1},{8,1},{7,4},{7,4},{7,3},{7,3},{7,2},{7,2},{7,1},{7,1},{6,4},{6,4},{6,3},{6,3},{6,2},{6,2},{6,1},{6,1},{5,4},{5,4},{5,3},{5,3},{5,2},{5,2},{5,1},{5,1},{4,4},{4,4},{4,3},{4,3},{4,2},{4,2},{4,1},{4,1},{3,4},{3,4},{3,3},{3,3},{3,2},{3,2},{3,1},{3,1},{2,4},{2,4},{2,3},{2,3},{2,2},{2,2},{2,1},{2,1},{1,4},{1,4},{1,3},{1,3},{1,2},{1,2},{1,1},{1,1}]).
+
+-define(POKE_NUM, 			34).
+-define(POKE_1, 			12).
+-define(POKE_2, 			13).
+-define(POKE_5, 			3).
+-define(POKE_10, 			8).
+-define(POKE_K, 			11).
+-define(POKE_SMALL_KING, 	14).
+-define(POKE_LARGE_KING, 	15).
 
 
 -export([
@@ -12,6 +21,295 @@
 	shuffle/3
 ]).
 
+-export([
+	check/3,
+	check/4,
+	check_type/3,
+	poke_check/3,
+	poke_check/4,
+
+	calc_same/1,
+
+	same_1/1,
+	same_2/1,
+	same_3/2,
+	same_zha/3,
+	same_wangzha/1,
+	same_wushik/2
+]).
+
+
+
+check(SendPoke, HandPoke, IsBanker) ->
+	LastPoke = {0, 0, 0},
+	check(LastPoke, SendPoke, HandPoke, IsBanker).
+
+check(LastPoke, SendPoke, HandPoke, IsBanker) ->
+	SortFun = fun({V1,C1},{V2,C2}) -> V1 < V2 orelse (V1 =:= V2 andalso C1 < C2) end,
+	PokeList = lists:sort(SortFun, SendPoke),
+	SortHandPoke = lists:sort(SortFun, HandPoke),
+	case hand_poke(PokeList, SortHandPoke) of
+		{ok, NewHandPoke} ->
+			case check_type(PokeList, NewHandPoke, IsBanker) of
+				{ok, Type, Len, Num, Reward} -> 
+					case check_max(LastPoke, {Type, Len, Num}) of
+						true -> {ok, NewHandPoke, Reward};
+						false -> false
+					end;
+				false -> 
+					false
+			end;
+		_ ->
+			false
+	end.
+	
+
+hand_poke(SSPoke, SHPoke) ->
+	hand_poke(SSPoke, SHPoke, []).
+
+
+hand_poke([P|SendList], [P|HandList], NewHand) ->
+	hand_poke(SendList, HandList, NewHand);
+hand_poke([{V1,C1}|SendList], [{V2,C2}|HandList], NewHand) when V1 > V2 orelse (V1 =:= V2 andalso C1 > C2) ->
+	hand_poke([{V1,C1}|SendList], HandList, [{V2, C2}|NewHand]);
+hand_poke([], HandList, NewHand) -> HandList ++ NewHand;
+hand_poke(_, _, _) -> false.
+
+
+
+
+check_max({Type, Len, Num1}, {Type, Len, Num2}) -> Num1 < Num2;
+check_max({Type, Len1, _}, {Type, Len2, _}) -> Len1 < Len2;
+check_max({Type1, _, _}, {Type2, _, _}) -> Type1 < Type2;
+check_max(_, _) -> false.
+
+
+%% 3个老K 的游戏规则
+%% ♠️ ❤️ ♣️ ♦️
+%% 副五十K < 正五十K < 4个头 < 5个头 < 3个王 < 3个五十K < 6个头 < 7个头 < 8个头 < 4个王 < 4个五十K < 5个五十K
+%% 4 		5		 6		7	    8	   9		 10		11		12	   13	   14       15
+
+%% 打的牌  手上的牌  是否是庄家
+check_type(PokeList, [], IsBanker) ->
+	poke_check(PokeList, 0, IsBanker);
+check_type(PokeList, _HandList, IsBanker) ->
+	poke_check(PokeList, 1, IsBanker).
+
+
+
+
+poke_check(PokeList, HandAlso, IsBanker) ->
+	MaxSame = calc_same(PokeList),
+	poke_check(MaxSame, PokeList, HandAlso, IsBanker).
+
+%% {ok, 5, Len, 0}   	王炸
+%% {ok, 6, Len, Son}	  5, 10, K  
+%% {ok, Type, Len, Num}  Type 1, 2, 3, 4
+
+poke_check(_Same, [], _, _) -> 
+	false;
+poke_check(1, PokeList, _, IsBanker) ->
+	case same_1(PokeList) of
+		{ok, Type, Len, Num, Reward} -> {ok, Type, Len, Num, Reward};
+		false -> same_wushik(PokeList, IsBanker)
+	end;
+poke_check(2, PokeList, _, _) ->
+	case same_2(PokeList) of
+		{ok, Type, Len, Num, Reward} -> {ok, Type, Len, Num, Reward};
+		false -> same_wangzha(PokeList)
+	end;
+poke_check(3, PokeList, HandAlso, IsBanker) ->
+	case same_3(PokeList, HandAlso) of
+		{ok, Type, Len, Num, Reward} -> {ok, Type, Len, Num, Reward};
+		false -> same_wushik(PokeList, IsBanker)
+	end;
+poke_check(Same, PokeList, HandAlso, IsBanker) when Same >= 4 andalso Same =< 8 ->
+	case same_zha(PokeList, Same, IsBanker) of
+		{ok, Type, Len, Num, Reward} -> 
+			{ok, Type, Len, Num, Reward};
+		false -> 
+			poke_check(3, PokeList, HandAlso, IsBanker)
+	end;
+poke_check(_, _, _, _) -> false.
+
+
+%% poke值转换为数学数值
+%% [{1,0},{11,1},{12,1},{13,3},{14,0},{15,0}]
+%% 3*13+4-2
+%% ♠️ ❤️ ♣️ ♦️
+
+
+
+
+
+calc_same([Poke|List]) -> 
+	calc_same(List, 1, Poke, 0).
+
+
+calc_same([{V, _}|List], Len, {V, _}, Max) ->
+	calc_same(List, Len+1, V, Max);
+calc_same([{V, _}|List], Len, _OldV, Max) ->
+	calc_same(List, 1, V, max(Max, Len));
+calc_same([], Len, _V, Max) ->
+	max(Max, Len).
+
+
+%% 单张 或者 龙
+same_1([Poke|List]) ->
+	same_1(List, 1, Poke).
+
+
+same_1([{NewV, _}|List], Len, {V, _}) when V + 1 =:= NewV andalso NewV < ?POKE_2 -> 
+	same_1(List, Len+1, NewV);
+same_1([], Len, {V, _}) when Len =:= 1 orelse Len >= 5 -> {ok, 1, Len, V, 0};
+same_1(_, _, _) -> false.
+	
+
+%% 一对 或者 连队
+same_2([{V, _}, {V, _}|List]) ->
+	same_2(List, 1, V).
+
+same_2([{NewV, _}, {NewV, _}|List], Len, V) when V + 1 =:= NewV andalso NewV < ?POKE_2 ->
+	same_2(List, Len+1, NewV);
+same_2([], 1, ?POKE_SMALL_KING) -> {ok, 2, 1, ?POKE_SMALL_KING, 1};
+same_2([], 1, ?POKE_LARGE_KING) -> {ok, 2, 1, ?POKE_LARGE_KING, 1};
+same_2([], Len, V) -> {ok, 2, Len, V, 0};
+same_2(_, _, _) -> false.
+
+
+%% 三带二 或者 六带四
+same_3(NumList, HandAlso) ->
+	same_3(NumList, 0, 0, 0, HandAlso).
+
+
+
+same_3([{V, _}, {V, _}, {V, _}|List], 0, 0, Salves, HandAlso) ->
+	same_3(List, 1, V, Salves, HandAlso);
+same_3([{NewV, _}, {NewV, _}, {NewV, _}|List], Len, V, Salves, HandAlso) when V + 1 =:= NewV andalso NewV < ?POKE_2 ->
+	same_3(List, Len+1, NewV, Salves, HandAlso);
+same_3([_Poke|List], Len, V, Salves, HandAlso) ->
+	same_3(List, Len, V, Salves+1, HandAlso);
+same_3([], Len, V, Salves, HandAlso) when Len > 0 andalso (Len * 2 =:= Salves orelse (HandAlso =:= 0 andalso Len * 2 > Salves)) ->
+	{ok, 3, Len, V, 0};
+same_3(_, _, _, _, _) -> false.
+
+
+%% 炸弹
+same_zha([{V, Color}|List], Len, IsBanker) ->
+	BR = color(Color, {0, 0}),
+	case same_zha(List, Len-1, V, BR) of
+		{ok, Reward} ->
+			LenReward = len_reward(Len),
+			XJReward = xianjia_reward(IsBanker, V, Len),
+			AllReward = Reward + LenReward + XJReward,
+			Type = zha_type(Len),
+			{ok, Type, Len, V,  AllReward};
+		false ->
+			false
+	end.
+
+
+xianjia_reward(0, ?POKE_K, Len) ->
+	k_reward(Len);
+xianjia_reward(_, _, _) -> 0.
+	
+
+
+
+same_zha([{V, C}|List], Len, V, BR) ->
+	BR1 = color(C, BR),
+	same_zha(List, Len - 1, V, BR1);
+same_zha([], 0, ?POKE_2, BR) ->
+	Reward = color_reward(BR) + 1,
+	{ok, Reward};
+same_zha([], 0, _V, BR) -> 
+	{ok, color_reward(BR)};
+same_zha(_, _, _, _) -> false.
+
+
+color(0, {Black, Red}) -> {Black+1, Red};
+color(1, {Black, Red}) -> {Black, Red+1};
+color(2, {Black, Red}) -> {Black+1, Red};
+color(3, {Black, Red}) -> {Black, Red+1};
+color(_, {Black, Red}) -> {Black, Red}.
+
+color_reward({4, 4}) -> 2;
+color_reward({4, _}) -> 1;
+color_reward({_, 4}) -> 1;
+color_reward({_, _}) -> 0.
+
+len_reward(4) -> 0;
+len_reward(Len) -> Len - 4.
+
+
+%% 王炸
+same_wangzha(PokeList) ->
+	same_wangzha(PokeList, 0).
+
+same_wangzha([{V, _}|List], Len) when V >= ?POKE_SMALL_KING ->
+	same_wangzha(List, Len + 1);
+same_wangzha([], 3) ->
+	{ok, 8, 3, 0, 2};
+same_wangzha([], 4) ->
+	{ok, 13, 4, 0, 6};
+same_wangzha(_, _) -> false.
+	
+
+%% 5 10 K 或者 555 101010 KKK
+same_wushik([{?POKE_5, C}, {?POKE_10, C}, {?POKE_K, C}], _) -> {ok, 5, 1, 0, 0};
+same_wushik([{?POKE_5, _}, {?POKE_10, _}, {?POKE_K, _}], _) -> {ok, 4, 1, 0, 0};
+same_wushik(PokeList, 0) -> same_wu(PokeList, 0, {0, 0});
+same_wushik(_, _) -> false.
+
+
+same_wu([{?POKE_5, C}|List], Len, BR) ->
+	BR1 = color(C, BR),
+	same_wu(List, Len+1, BR1);
+same_wu([{?POKE_10, C}|List], Len, BR) when Len > 2 ->
+	Reward = color_reward(BR),
+	BR1 = color(C, {0, 0}),
+	same_shi(List, 1, Len, BR1, Reward);
+same_wu(_, _, _) -> false.
+
+same_shi([{?POKE_10, C}|List], Len, Min, BR, Reward) ->
+	BR1 = color(C, BR),
+	same_shi(List, Len+1, Min, BR1, Reward);
+same_shi([{?POKE_K, C}|List], Len, Min, BR, Reward) when Len > 2 ->
+	ShiColorReward = color_reward(BR),
+	BR1 = color(C, {0, 0}),
+	same_k(List, 1, min(Len, Min), BR1, Reward + ShiColorReward, abs(Len-Min));
+same_shi(_, _, _, _, _) -> false.
+
+
+same_k([{?POKE_K, C}|List], Len, Min, BR, Reward, Son) ->
+	BR1 = color(C, BR),
+	same_k(List, Len+1, Min, BR1, Reward, Son);
+same_k([], Len, Min, BR, Reward, Son) when Len > 2 ->
+	KColorReward = color_reward(BR),
+	KReward = k_reward(Len),
+	Type = wushik_type(min(Len, Min)),
+	AllReward = Reward + KColorReward + KReward + Son + abs(Len-Min),
+	{ok, 6, Type, 0, AllReward};
+same_k(_, _, _, _, _, _) -> false.
+
+
+k_reward(3) -> 0;
+k_reward(4) -> 3;
+k_reward(5) -> 5.
+
+
+%% 副五十K < 正五十K < 4个头 < 5个头 < 3个王 < 3个五十K < 6个头 < 7个头 < 8个头 < 4个王 < 4个五十K < 5个五十K
+%% 4 		5		 6		7	    8	   9		 10		11		12	   13	   14       15
+zha_type(4) -> 6;
+zha_type(5) -> 7;
+zha_type(6) -> 10;
+zha_type(7) -> 11;
+zha_type(8) -> 12.
+
+
+wushik_type(3) -> 9;
+wushik_type(4) -> 14;
+wushik_type(5) -> 15.
 
 
 shuffle() ->
@@ -65,50 +363,6 @@ swap(K, Max, Map) ->
 
 	
 
-% shuffle([Poke|List], UnFinList, FinList) ->
-% 	case UnFinList of
-% 		[{L1, PL1}, {L2, PL2}] ->
-% 			case rand:uniform(2) of
-% 				1 -> 
-% 					case L1 < ?POKE_NUM of
-% 						true -> 
-% 							shuffle(List, [{L1+1, [Poke|PL1]}, {L2, PL2}], FinList);
-% 						false ->
-% 							[[Poke|PL1], List ++ PL2, FinList]
-% 					end;
-% 				2 -> 
-% 					case L2 < ?POKE_NUM of
-% 						true ->
-% 							shuffle(List, [{L1, PL1}, {L2+1, [Poke|PL2]}], FinList);
-% 						false ->
-% 							[lists:reverse(List) ++ PL1, [Poke|PL2], FinList]
-% 					end
-% 			end;
-% 		[{L1, PL1}, {L2, PL2}, {L3, PL3}] ->
-% 			case rand:uniform(3) of
-% 				1 -> 
-% 					case L1 < ?POKE_NUM of
-% 						true -> 
-% 							shuffle(List, [{L1+1, [Poke|PL1]}, {L2, PL2}, {L3, PL3}], FinList);
-% 						false ->
-% 							shuffle(List, [{L2, PL2}, {L3, PL3}], [Poke|PL1])
-% 					end;
-% 				2 ->
-% 					case L2 < ?POKE_NUM of
-% 						true -> 
-% 							shuffle(List, [{L1, PL1}, {L2+1, [Poke|PL2]}, {L3, PL3}], FinList);
-% 						false ->
-% 							shuffle(List, [{L1, PL1}, {L3, PL3}], [Poke|PL2])
-% 					end;
-% 				3 ->
-% 					case L3 < ?POKE_NUM of
-% 						true -> 
-% 							shuffle(List, [{L1, PL1}, {L2, PL2}, {L3+1, [Poke|PL3]}], FinList);
-% 						false ->
-% 							shuffle(List, [{L1, PL1}, {L2, PL2}], [Poke|PL3])
-% 					end
-% 			end
-% 	end.
 
 
 
