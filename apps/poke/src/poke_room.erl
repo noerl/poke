@@ -214,7 +214,7 @@ deal_card(Room) ->
                 false -> HandCards
             end,
         Pid ! {deal_card, NewHandCards},
-        UserTmp#user{handcards = PosCard}
+        UserTmp#user{handcards = NewHandCards}
     end,
     lists:map(Fun, Room#room.userList).
 
