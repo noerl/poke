@@ -14,8 +14,8 @@
 
 
 shuffle() ->
-	CardMap = shuffle(?POKE_LIST, #{1 => {0, []}, 2 => {0, []}, 3 => {0, []}}, #{}).
-	bucket(CardMap, 3).
+	CardMap = shuffle(?POKE_LIST, #{1 => {0, []}, 2 => {0, []}, 3 => {0, []}}, #{}),
+	bucket(CardMap, 3, 1).
 
 
 shuffle(PokeList, #{1 := {_, OwnList}}, FinMap) ->
@@ -26,7 +26,7 @@ shuffle([Poke|List], UnFinMap, FinMap) ->
 	#{Index := {IndexLen, IndexList}} = UnFinMap,
 	case IndexLen < ?POKE_NUM of
 		true -> 
-			UnFinMap1 = UnFinList#{Index => {IndexLen+1, [Poke|IndexList]}},
+			UnFinMap1 = UnFinMap#{Index => {IndexLen+1, [Poke|IndexList]}},
 			shuffle(List, UnFinMap1, FinMap);
 		false ->
 			Fun = fun(Key, Value, Map) when Key > Index -> Map#{Key - 1 => Value};
@@ -42,13 +42,13 @@ bucket(CardMap, Max, Max) ->
 	swap(Max, Max, CardMap);
 bucket(CardMap, Max, Min) ->
 	CardMap1 = swap(Min, Max, CardMap),
-	bucket(CardMap, Max, Min+1).
+	bucket(CardMap1, Max, Min+1).
 
 
 swap(K, Max, Map) ->
 	Idx = rand:uniform(Max),
 	#{K := V1, Idx := V2} = CardMap,
-	CardMap#{K => V2, Idx => V1}.
+	Map#{K => V2, Idx => V1}.
 
 	
 
