@@ -29,9 +29,11 @@ shuffle([Poke|List], UnFinMap, FinMap) ->
 			UnFinMap1 = UnFinMap#{Index => {IndexLen+1, [Poke|IndexList]}},
 			shuffle(List, UnFinMap1, FinMap);
 		false ->
-			Fun = fun(Key, Value, Map) when Key > Index -> Map#{Key - 1 => Value};
-				  fun(Key, Value, Map) when Key = Index -> Map;
-				  fun(Key, Value, Map) when Key < Index -> Map#{Key => Value}
+			Fun = fun(Key, Value, Map) ->
+					if  Key > Index -> Map#{Key - 1 => Value};
+						Key = Index -> Map;
+						true -> Map#{Key => Value}
+					end
 				end,
 			UnFinMap1 = maps:fold(Fun, #{}, UnFinMap),
 			shuffle(List, UnFinMap1, FinMap#{Len => [Poke|IndexList]})
