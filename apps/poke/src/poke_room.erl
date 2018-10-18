@@ -103,7 +103,10 @@ join_once(Pid, Name, Room) ->
             Room#room{posList = [], userList = NewUserList};
         [Pos|List] ->
             NewUserList = join_notice(Pid, Name, Pos, Room),
-            Room#room{posList = List, userList = NewUserList}
+            Room#room{posList = List, userList = NewUserList};
+        [] ->
+        	Pid ! {cmd, <<"error:">>, [{<<"type">>, 1002}]},
+        	Room
     end.
 
 
